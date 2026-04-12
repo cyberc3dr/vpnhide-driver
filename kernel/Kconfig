@@ -1,0 +1,9 @@
+config VPNHIDE
+	bool "Hide VPN interfaces from selected Android UIDs"
+	depends on PROC_FS
+	default n
+	help
+	  Exports vpnhide_is_target_uid() and vpnhide_is_vpn_ifname() which
+	  are called directly from net/core, net/ipv4, and net/ipv6 to filter
+	  VPN interfaces out of ioctl/netlink/proc responses for processes
+	  whose UID is written to /proc/vpnhide_targets.
