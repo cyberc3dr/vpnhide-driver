@@ -16,9 +16,9 @@ Hook logic per file:
 ---
 
 ## net/core/dev_ioctl.c
-
-Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (SIOCGIFNAME + SIOCGIFFLAGS).
-
+ 
+Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfaces).
+ 
 ```diff
 --- a/net/core/dev_ioctl.c
 +++ b/net/core/dev_ioctl.c
@@ -69,8 +69,7 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (SIOCGIFNAME + SIOCGIFFLAG
  		ret = dev_ifsioc_locked(net, ifr, cmd);
  		rcu_read_unlock();
 +#ifdef CONFIG_VPNHIDE
-+		if (!ret && cmd == SIOCGIFFLAGS &&
-+		    vpnhide_is_target_uid() &&
++		if (!ret && vpnhide_is_target_uid() &&
 +		    vpnhide_is_vpn_ifname(ifr->ifr_name))
 +			ret = -ENODEV;
 +#endif
