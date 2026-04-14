@@ -1,10 +1,12 @@
 #!/system/bin/sh
-# Resolves package names → UIDs and writes to /proc/vpnhide_targets.
-# KSU may run this before PackageManager is fully ready, so we wait.
+# Resolves package names → UIDs for kmod and lsposed at boot.
+# kmod targets → /proc/vpnhide_targets
+# lsposed targets → /data/system/vpnhide_uids.txt
 
-PERSIST_DIR="/data/adb/vpnhide_kmod"
-TARGETS_FILE="$PERSIST_DIR/targets.txt"
+KMOD_TARGETS="/data/adb/vpnhide_kmod/targets.txt"
+LSPOSED_TARGETS="/data/adb/vpnhide_lsposed/targets.txt"
 PROC_TARGETS="/proc/vpnhide_targets"
+SS_UIDS_FILE="/data/system/vpnhide_uids.txt"
 
 # Wait for the proc entry (kernel module must be loaded)
 for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -19,53 +21,64 @@ for i in $(seq 1 30); do
 done
 
 if [ ! -f "$PROC_TARGETS" ]; then
-    log -t vpnhide "kernel module not loaded, skipping UID resolution"
-    exit 0
+    log -t vpnhide "kernel module not loaded, skipping kmod UID resolution"
 fi
 
-if [ ! -f "$TARGETS_FILE" ]; then
-    exit 0
+# Migration: if lsposed targets don't exist yet, seed from kmod targets
+if [ ! -f "$LSPOSED_TARGETS" ] && [ -f "$KMOD_TARGETS" ]; then
+    cp "$KMOD_TARGETS" "$LSPOSED_TARGETS"
+    log -t vpnhide "migrated kmod targets to lsposed targets"
 fi
 
 # Get all packages with UIDs in one call
 ALL_PACKAGES="$(pm list packages -U 2>/dev/null)"
 
-# Resolve each target package name to its UID
-UIDS=""
-while IFS= read -r line || [ -n "$line" ]; do
-    # Trim whitespace
-    pkg="$(echo "$line" | tr -d '[:space:]')"
-    [ -z "$pkg" ] && continue
-    # Skip comments
-    case "$pkg" in \#*) continue ;; esac
-
-    # Find UID: pm list packages -U outputs "package:<name> uid:<uid>"
-    uid="$(echo "$ALL_PACKAGES" | grep "^package:${pkg} " | sed 's/.*uid://')"
-    if [ -n "$uid" ]; then
-        if [ -z "$UIDS" ]; then
-            UIDS="$uid"
+# resolve_uids <targets_file> — prints resolved UIDs to stdout
+resolve_uids() {
+    local targets_file="$1"
+    [ -f "$targets_file" ] || return
+    local uids=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        pkg="$(echo "$line" | tr -d '[:space:]')"
+        [ -z "$pkg" ] && continue
+        case "$pkg" in \#*) continue ;; esac
+        uid="$(echo "$ALL_PACKAGES" | grep "^package:${pkg} " | sed 's/.*uid://')"
+        if [ -n "$uid" ]; then
+            if [ -z "$uids" ]; then uids="$uid"; else uids="${uids}
+${uid}"; fi
         else
-            UIDS="${UIDS}
-${uid}"
+            log -t vpnhide "package not found: $pkg"
         fi
+    done < "$targets_file"
+    [ -n "$uids" ] && echo "$uids"
+}
+
+# Resolve kmod targets → /proc/vpnhide_targets
+if [ -f "$PROC_TARGETS" ] && [ -f "$KMOD_TARGETS" ]; then
+    KMOD_UIDS="$(resolve_uids "$KMOD_TARGETS")"
+    if [ -n "$KMOD_UIDS" ]; then
+        echo "$KMOD_UIDS" > "$PROC_TARGETS"
+        count="$(echo "$KMOD_UIDS" | wc -l)"
+        log -t vpnhide "kmod: loaded $count target UIDs"
     else
-        log -t vpnhide "package not found: $pkg"
+        log -t vpnhide "kmod: no UIDs resolved"
     fi
-done < "$TARGETS_FILE"
+fi
 
-if [ -n "$UIDS" ]; then
-    echo "$UIDS" > "$PROC_TARGETS"
-    count="$(echo "$UIDS" | wc -l)"
-    log -t vpnhide "loaded $count target UIDs into kernel module"
-
-    # Also write to a file readable by system_server for the
-    # LSPosed system_server hooks (SELinux blocks system_server
-    # from reading /proc/vpnhide_targets directly).
-    SS_UIDS_FILE="/data/system/vpnhide_uids.txt"
-    echo "$UIDS" > "$SS_UIDS_FILE"
-    chmod 644 "$SS_UIDS_FILE"
-    chcon u:object_r:system_data_file:s0 "$SS_UIDS_FILE" 2>/dev/null
-    log -t vpnhide "wrote UIDs to $SS_UIDS_FILE for system_server"
-else
-    log -t vpnhide "no UIDs resolved from targets.txt"
+# Resolve lsposed targets → /data/system/vpnhide_uids.txt
+# Create persist dir if needed (for first-time installs)
+mkdir -p /data/adb/vpnhide_lsposed 2>/dev/null
+if [ -f "$LSPOSED_TARGETS" ]; then
+    LSPOSED_UIDS="$(resolve_uids "$LSPOSED_TARGETS")"
+    if [ -n "$LSPOSED_UIDS" ]; then
+        echo "$LSPOSED_UIDS" > "$SS_UIDS_FILE"
+        chmod 644 "$SS_UIDS_FILE"
+        chcon u:object_r:system_data_file:s0 "$SS_UIDS_FILE" 2>/dev/null
+        count="$(echo "$LSPOSED_UIDS" | wc -l)"
+        log -t vpnhide "lsposed: wrote $count UIDs to $SS_UIDS_FILE"
+    else
+        echo > "$SS_UIDS_FILE"
+        chmod 644 "$SS_UIDS_FILE"
+        log -t vpnhide "lsposed: no UIDs resolved"
+    fi
 fi

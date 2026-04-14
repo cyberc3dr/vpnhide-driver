@@ -1,6 +1,7 @@
 #!/system/bin/sh
 SKIPUNZIP=0
-ui_print "- VPN Hide (userspace) v0.4.2"
+MOD_VER="$(grep '^version=' "$MODPATH/module.prop" | cut -d= -f2)"
+ui_print "- VPN Hide (userspace) ${MOD_VER:-unknown}"
 ui_print "- Installing to $MODPATH"
 
 # Persistent config directory (survives module updates)
