@@ -15,6 +15,9 @@
 
 #define MAX_TARGET_UIDS 64
 
+bool vpnhide_debug_enabled;
+EXPORT_SYMBOL_GPL(vpnhide_debug_enabled);
+
 static const char * const vpn_prefixes[] = {
 	"tun", "ppp", "tap", "wg", "ipsec", "xfrm", "utun", "l2tp", "gre",
 };
@@ -132,13 +135,51 @@ static const struct file_operations targets_fops = {
 	.release = single_release,
 };
 
+static ssize_t debug_write(struct file *file, const char __user *ubuf,
+			   size_t count, loff_t *ppos)
+{
+	char c;
+ 
+	if (count == 0)
+		return 0;
+	if (get_user(c, ubuf))
+		return -EFAULT;
+ 
+	vpnhide_debug_enabled = (c == '1' || c == 'Y' || c == 'y');
+	pr_info("debug %s\n", vpnhide_debug_enabled ? "enabled" : "disabled");
+	return count;
+}
+ 
+static int debug_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", vpnhide_debug_enabled ? 1 : 0);
+	return 0;
+}
+ 
+static int debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debug_show, NULL);
+}
+ 
+static const struct file_operations debug_fops = {
+	.owner   = THIS_MODULE,
+	.open    = debug_open,
+	.read    = seq_read,
+	.write   = debug_write,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 static struct proc_dir_entry *targets_entry;
+static struct proc_dir_entry *debug_entry;
 
 static int __init vpnhide_init(void)
 {
 	targets_entry = proc_create("vpnhide_targets", 0600, NULL,
-				    &targets_fops); /* was: &targets_proc_ops */
-	pr_info("vpnhide: loaded — write UIDs to /proc/vpnhide_targets\n");
+				    &targets_fops);
+	debug_entry = proc_create("vpnhide_debug", 0600, NULL,
+				  &debug_fops);
+	pr_info("loaded — write UIDs to /proc/vpnhide_targets\n");
 	return 0;
 }
 

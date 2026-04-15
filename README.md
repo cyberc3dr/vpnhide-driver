@@ -29,6 +29,10 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +extern bool vpnhide_is_target_uid(void);
 +extern bool vpnhide_is_vpn_ifname(const char *name);
++extern bool vpnhide_debug_enabled;
++#define vpnhide_dbg(fmt, ...) \
++	do { if (vpnhide_debug_enabled) \
++		pr_info("vpnhide: " fmt, ##__VA_ARGS__); } while (0)
 +#endif
 +
  /*
@@ -53,8 +57,11 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +	if (cmd == SIOCGIFNAME) {
 +		int __r = dev_ifname(net, ifr);
 +		if (!__r && vpnhide_is_target_uid() &&
-+		    vpnhide_is_vpn_ifname(ifr->ifr_name))
++		    vpnhide_is_vpn_ifname(ifr->ifr_name)) {
++			vpnhide_dbg("dev_ioctl: hiding SIOCGIFNAME iface=%s\n",
++				    ifr->ifr_name);
 +			return -ENODEV;
++		}
 +		return __r;
 +	}
 +#else
@@ -69,19 +76,23 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
  		ret = dev_ifsioc_locked(net, ifr, cmd);
  		rcu_read_unlock();
 +#ifdef CONFIG_VPNHIDE
++		/* v0.4.2: filter ALL ioctls, not just SIOCGIFFLAGS */
 +		if (!ret && vpnhide_is_target_uid() &&
-+		    vpnhide_is_vpn_ifname(ifr->ifr_name))
++		    vpnhide_is_vpn_ifname(ifr->ifr_name)) {
++			vpnhide_dbg("dev_ioctl: hiding iface=%s cmd=0x%x\n",
++				    ifr->ifr_name, cmd);
 +			ret = -ENODEV;
++		}
 +#endif
  		if (colon)
  			*colon = ':';
  		return ret;
 ```
-
+ 
 ---
-
+ 
 ## net/core/rtnetlink.c
-
+ 
 ```diff
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
@@ -92,6 +103,10 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +extern bool vpnhide_is_target_uid(void);
 +extern bool vpnhide_is_vpn_ifname(const char *name);
++extern bool vpnhide_debug_enabled;
++#define vpnhide_dbg(fmt, ...) \
++	do { if (vpnhide_debug_enabled) \
++		pr_info("vpnhide: " fmt, ##__VA_ARGS__); } while (0)
 +#endif
 +
  #define RTNL_MAX_TYPE		50
@@ -100,18 +115,20 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
  			    int tgt_netnsid, gfp_t gfp)
  {
 +#ifdef CONFIG_VPNHIDE
-+	if (vpnhide_is_target_uid() && vpnhide_is_vpn_ifname(dev->name))
++	if (vpnhide_is_target_uid() && vpnhide_is_vpn_ifname(dev->name)) {
++		vpnhide_dbg("rtnl_fill_ifinfo: hiding iface=%s\n", dev->name);
 +		return -EMSGSIZE;
++	}
 +#endif
  	struct ifinfomsg *ifm;
  	struct nlmsghdr *nlh;
  	struct Qdisc *qdisc;
 ```
-
+ 
 ---
-
+ 
 ## net/ipv6/addrconf.c
-
+ 
 ```diff
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
@@ -122,6 +139,10 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +extern bool vpnhide_is_target_uid(void);
 +extern bool vpnhide_is_vpn_ifname(const char *name);
++extern bool vpnhide_debug_enabled;
++#define vpnhide_dbg(fmt, ...) \
++	do { if (vpnhide_debug_enabled) \
++		pr_info("vpnhide: " fmt, ##__VA_ARGS__); } while (0)
 +#endif
 +
  #define	INFINITY_LIFE_TIME	0xFFFFFFFF
@@ -131,17 +152,20 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +	if (vpnhide_is_target_uid() &&
 +	    ifa->idev && ifa->idev->dev &&
-+	    vpnhide_is_vpn_ifname(ifa->idev->dev->name))
++	    vpnhide_is_vpn_ifname(ifa->idev->dev->name)) {
++		vpnhide_dbg("inet6_fill_ifaddr: hiding iface=%s\n",
++			    ifa->idev->dev->name);
 +		return 0;
++	}
 +#endif
  	struct nlmsghdr  *nlh;
  	u32 preferred, valid;
 ```
-
+ 
 ---
-
+ 
 ## net/ipv4/devinet.c
-
+ 
 ```diff
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
@@ -151,6 +175,10 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +extern bool vpnhide_is_target_uid(void);
 +extern bool vpnhide_is_vpn_ifname(const char *name);
++extern bool vpnhide_debug_enabled;
++#define vpnhide_dbg(fmt, ...) \
++	do { if (vpnhide_debug_enabled) \
++		pr_info("vpnhide: " fmt, ##__VA_ARGS__); } while (0)
 +#endif
 +
  #define IPV6ONLY_FLAGS	\
@@ -161,22 +189,25 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 +#ifdef CONFIG_VPNHIDE
 +	if (vpnhide_is_target_uid() &&
 +	    ifa->ifa_dev && ifa->ifa_dev->dev &&
-+	    vpnhide_is_vpn_ifname(ifa->ifa_dev->dev->name))
++	    vpnhide_is_vpn_ifname(ifa->ifa_dev->dev->name)) {
++		vpnhide_dbg("inet_fill_ifaddr: hiding iface=%s\n",
++			    ifa->ifa_dev->dev->name);
 +		return 0;
++	}
 +#endif
  	struct ifaddrmsg *ifm;
  	struct nlmsghdr  *nlh;
  	u32 preferred, valid;
 ```
-
+ 
 ---
-
+ 
 ## net/ipv4/fib_trie.c
-
+ 
 The route table entry is written via `seq_printf` inside `if (fi)`.
 The device name is in `nhc->nhc_dev->name`. Skip before writing — no
 seq buffer compaction needed.
-
+ 
 ```diff
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
@@ -187,6 +218,10 @@ seq buffer compaction needed.
 +#ifdef CONFIG_VPNHIDE
 +extern bool vpnhide_is_target_uid(void);
 +extern bool vpnhide_is_vpn_ifname(const char *name);
++extern bool vpnhide_debug_enabled;
++#define vpnhide_dbg(fmt, ...) \
++	do { if (vpnhide_debug_enabled) \
++		pr_info("vpnhide: " fmt, ##__VA_ARGS__); } while (0)
 +#endif
 +
  static int call_fib_entry_notifier(struct notifier_block *nb, struct net *net,
@@ -197,12 +232,13 @@ seq buffer compaction needed.
 +#ifdef CONFIG_VPNHIDE
 +			if (vpnhide_is_target_uid() &&
 +			    nhc->nhc_dev &&
-+			    vpnhide_is_vpn_ifname(nhc->nhc_dev->name))
++			    vpnhide_is_vpn_ifname(nhc->nhc_dev->name)) {
++				vpnhide_dbg("fib_route_seq_show: hiding route for %s\n",
++					    nhc->nhc_dev->name);
 +				continue;
++			}
 +#endif
  			__be32 gw = 0;
  
  			if (nhc->nhc_gw_family == AF_INET)
 ```
-
-
