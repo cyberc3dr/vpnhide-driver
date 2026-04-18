@@ -14,9 +14,17 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
 done
 
-# Wait for PackageManager to be ready
-for i in $(seq 1 30); do
-    pm list packages >/dev/null 2>&1 && break
+# Wait until PackageManager has actually indexed user-installed apps.
+# `pm list packages` starts responding very early in boot but returns
+# only system packages for several more seconds — if we resolve during
+# that window, `dev.okhsunrog.vpnhide` (and any other user-installed
+# target) silently drops from the UID file and the LSPosed hook caches
+# an empty target set for the rest of the session. Gate on our own
+# package being visible, with a 60s budget.
+for i in $(seq 1 60); do
+    if pm list packages -U 2>/dev/null | grep -q "^package:dev.okhsunrog.vpnhide "; then
+        break
+    fi
     sleep 1
 done
 

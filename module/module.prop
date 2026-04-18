@@ -1,6 +1,6 @@
 id=vpnhide_kmod
 name=VPN Hide (kernel)
-version=v0.6.0
-versionCode=600
+version=v0.6.2
+versionCode=602
 author=okhsunrog
 description=Hides VPN interfaces from selected apps at the kernel level via manual hooks. Invisible to anti-tamper SDKs. Manage targets via VPN Hide app.
