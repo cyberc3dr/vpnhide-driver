@@ -2,7 +2,7 @@
 
 See [Kernel 4.9 integration](integrate-4.9.md) for older kernel integration.
 
-Reference: https://github.com/cyberc3dr/android_kernel_nothing_sm7325/commit/c0c68e88ea8b7c023255ec14c59921cb62dab4f5
+Reference: [commit](https://github.com/cyberc3dr/android_kernel_nothing_sm7325/commit/c0c68e88ea8b7c023255ec14c59921cb62dab4f5)
 
 Apply these diffs to your 5.4 kernel source after running `setup.sh`.
 

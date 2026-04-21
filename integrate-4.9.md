@@ -1,6 +1,6 @@
 # vpnhide — kernel integration patches (Linux 4.9)
 
-Reference: https://github.com/cyberc3dr/android_kernel_xiaomi_onclite/commit/9dc24a633f266cc47b4945c869fc31f4810bad2c
+Reference: [commit](https://github.com/cyberc3dr/android_kernel_xiaomi_onclite/commit/9dc24a633f266cc47b4945c869fc31f4810bad2c)
 
 Apply these diffs to your 4.9 kernel source after running `setup.sh`.
 
