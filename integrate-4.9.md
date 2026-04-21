@@ -2,6 +2,8 @@
 
 Reference: [commit](https://github.com/cyberc3dr/android_kernel_xiaomi_onclite/commit/9dc24a633f266cc47b4945c869fc31f4810bad2c)
 
+Also tested and can be used on 3.18: [commit](https://github.com/cyberc3dr/android_kernel_samsung_universal7880/commit/320a0ad22670ee99a7b11ba83105f915ab975ee5)
+
 Apply these diffs to your 4.9 kernel source after running `setup.sh`.
 
 ```
