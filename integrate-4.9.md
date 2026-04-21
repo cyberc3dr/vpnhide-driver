@@ -208,10 +208,6 @@ Two hooks: `dev_ifconf` (SIOCGIFCONF) and `dev_ioctl` (all ioctls on VPN interfa
 
 ## net/ipv4/fib_trie.c
 
-Key differences from 5.4:
-- No `fib_nh_common` / `fib_info_nhc()` — device name is `fi->fib_dev->name` (macro: `fib_dev = fib_nh[0].nh_dev`)
-- `if (fi)` has no braces — insert check **before** `if (fi)`, not inside it
-
 ```diff
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
