@@ -38,10 +38,16 @@ if [ ! -f "$LSPOSED_TARGETS" ] && [ -f "$KMOD_TARGETS" ]; then
     log -t vpnhide "migrated kmod targets to lsposed targets"
 fi
 
-# Get all packages with UIDs in one call
-ALL_PACKAGES="$(pm list packages -U 2>/dev/null)"
+# Get all packages with UIDs across every profile in one call.
+# `--user all` emits comma-separated UIDs per package line for apps
+# present in multiple profiles, e.g.
+#   package:com.android.chrome uid:10187,1010187
+# so work-profile / secondary-user installs get targeted too.
+ALL_PACKAGES="$(pm list packages -U --user all 2>/dev/null)"
 
-# resolve_uids <targets_file> — prints resolved UIDs to stdout
+# resolve_uids <targets_file> — prints one UID per line to stdout.
+# Splits the comma-separated UID list so every profile's copy of the
+# target package ends up individually in /proc/vpnhide_targets.
 resolve_uids() {
     local targets_file="$1"
     [ -f "$targets_file" ] || return
@@ -50,10 +56,11 @@ resolve_uids() {
         pkg="$(echo "$line" | tr -d '[:space:]')"
         [ -z "$pkg" ] && continue
         case "$pkg" in \#*) continue ;; esac
-        uid="$(echo "$ALL_PACKAGES" | grep "^package:${pkg} " | sed 's/.*uid://')"
-        if [ -n "$uid" ]; then
-            if [ -z "$uids" ]; then uids="$uid"; else uids="${uids}
-${uid}"; fi
+        uid_csv="$(echo "$ALL_PACKAGES" | grep "^package:${pkg} " | sed 's/.*uid://')"
+        if [ -n "$uid_csv" ]; then
+            expanded="$(echo "$uid_csv" | tr ',' '\n')"
+            if [ -z "$uids" ]; then uids="$expanded"; else uids="${uids}
+${expanded}"; fi
         else
             log -t vpnhide "package not found: $pkg"
         fi
