@@ -126,13 +126,12 @@ static int targets_open(struct inode *inode, struct file *file)
 	return single_open(file, targets_show, NULL);
 }
 
-static const struct file_operations targets_fops = {
-	.owner   = THIS_MODULE,
-	.open    = targets_open,
-	.read    = seq_read,
-	.write   = targets_write,
-	.llseek  = seq_lseek,
-	.release = single_release,
+static const struct proc_ops targets_proc_ops = {
+	.proc_open = targets_open,
+	.proc_read = seq_read,
+	.proc_write = targets_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static ssize_t debug_write(struct file *file, const char __user *ubuf,
@@ -161,13 +160,12 @@ static int debug_open(struct inode *inode, struct file *file)
 	return single_open(file, debug_show, NULL);
 }
  
-static const struct file_operations debug_fops = {
-	.owner   = THIS_MODULE,
-	.open    = debug_open,
-	.read    = seq_read,
-	.write   = debug_write,
-	.llseek  = seq_lseek,
-	.release = single_release,
+static const struct proc_ops debug_proc_ops = {
+	.proc_open = debug_open,
+	.proc_read = seq_read,
+	.proc_write = debug_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
 };
 
 static struct proc_dir_entry *targets_entry;
@@ -176,9 +174,9 @@ static struct proc_dir_entry *debug_entry;
 static int __init vpnhide_init(void)
 {
 	targets_entry = proc_create("vpnhide_targets", 0600, NULL,
-				    &targets_fops);
+				    &targets_proc_ops);
 	debug_entry = proc_create("vpnhide_debug", 0600, NULL,
-				  &debug_fops);
+				  &debug_proc_ops);
 	pr_info("loaded — write UIDs to /proc/vpnhide_targets\n");
 	return 0;
 }
