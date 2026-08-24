@@ -1,5 +1,10 @@
 # vpnhide — kernel integration patches
 
+Use [VPNHide KPM](https://github.com/okhsunrog/vpnhide) or [VPNHide Next built-in](https://github.com/soranerai/vpnhide_next_backend)
+
+<details>
+  <summary>Deprecated:</summary>
+
 See [Kernel 4.9 integration](integrate-4.9.md) for older kernel integration.
 
 Reference: [commit](https://github.com/cyberc3dr/android_kernel_nothing_sm7325/commit/c0c68e88ea8b7c023255ec14c59921cb62dab4f5)
@@ -246,3 +251,4 @@ seq buffer compaction needed.
  
  			if (nhc->nhc_gw_family == AF_INET)
 ```
+</details>
